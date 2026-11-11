@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="fr"><head><base target="_top"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,Arial,sans-serif;color:#18242a;background:#f4f6f7}*{box-sizing:border-box}body{margin:0}.wrap{max-width:760px;margin:auto;padding:16px}header{background:#fff;padding:22px 18px;border-radius:18px;text-align:center;margin-bottom:16px}h1{font-size:1.55rem;margin:0}h2{font-size:1.16rem;margin:0 0 12px}h3{font-size:1rem;margin:14px 0 8px}.card{background:white;border:1px solid #e1e6e9;border-radius:16px;padding:18px;margin:14px 0}.soft{background:#f4f7f8;border-radius:12px;padding:12px;margin:12px 0}.warning{background:#fff3ed;border:2px solid #d66a3d;border-radius:12px;padding:12px;font-weight:750}.muted{color:#52636a;font-size:.91rem}.field{display:block;font-weight:650;margin:12px 0 5px}select,input[type=text],textarea{width:100%;padding:12px;border:1px solid #b8c5cb;border-radius:10px;background:#fff;font:inherit}textarea{min-height:75px;resize:vertical}.choices{display:flex;gap:12px;flex-wrap:wrap}.choices label{background:#f2f5f6;border-radius:10px;padding:10px;cursor:pointer}.check{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid #edf0f1;line-height:1.35}.check input{width:20px;height:20px;flex:none;margin:0;accent-color:#18864d}.check span{flex:1}.action{border:0;border-radius:11px;background:#16864a;color:white;padding:13px 15px;font-weight:700;font-size:1rem;cursor:pointer;width:100%;margin:10px 0 4px}.action:disabled{opacity:.45;cursor:not-allowed}.secondary{background:#245a78}.small{font-size:.84rem}.hidden{display:none!important}.proced{margin:9px 0 14px 30px;padding:12px;border-left:4px solid #d68c32;background:#fff8e9;border-radius:8px}.proced ul{padding-left:20px;margin:7px 0}.progress{height:10px;border-radius:20px;background:#e2e8ea;overflow:hidden}.bar{height:100%;width:0;background:#18864d;transition:width .2s}.counter{text-align:right;color:#51656c;font-size:.9rem;margin:6px 0}.status{padding:12px;border-radius:12px;background:#edf6ef;margin:10px 0;white-space:pre-wrap}.error{background:#ffeded;color:#8c2323}.mini{font-size:.85rem;color:#52636a}a{color:#08743b}footer{font-size:.83rem;color:#66767d;text-align:center;margin:22px 0}
+</style></head><body><div class="wrap">
+<header><h1>🧹 Contrôle des interventions</h1></header>
+<section class="card">
+<h2>📍 Mon lieu d'intervention</h2>
+<label class="field">Je vais intervenir dans :</label><div class="choices"><label><input type="radio" name="type" value="Logement" checked> 🏠 Un logement</label><label><input type="radio" name="type" value="Laverie"> 🧺 Une laverie</label></div>
+<label class="field" for="sector">Secteur</label><select id="sector"></select>
+<label class="field" for="place">Logement ou laverie</label><select id="place"><option value="">Sélectionner un lieu</option></select>
+<label class="field" for="cleaner">👤 Prénom de l'intervenante</label><input id="cleaner" type="text" maxlength="120" placeholder="Votre prénom" autocomplete="given-name">
+</section>
+<section class="card"><strong>Progression de l'intervention</strong><div class="counter" id="counter">0/0</div><div class="progress"><div class="bar" id="bar"></div></div></section>
+<div id="tasks"></div>
+<section class="card"><label class="field" for="comments">📝 Commentaires complémentaires</label><textarea id="comments" maxlength="2000" placeholder="Information utile à transmettre..."></textarea>
+<button class="action" id="submit" type="button">✅ J'ai terminé mon intervention</button><div id="result" role="status" aria-live="polite"></div></section>
+<footer>Les vidéos et photos sont jointes manuellement dans WhatsApp. Le rapport enregistre les déclarations de l'intervenante.</footer>
+</div>
+<script>
+'use strict';
+// ▼▼▼ SEULE LIGNE À MODIFIER : collez entre les guillemets l'URL de l'application Web (elle se termine par /exec) ▼▼▼
+const API_URL='https://script.google.com/macros/s/AKfycbxk2qpcJk-RYODR54_pFcUJy_JoH1sXkG4kcTiPRplSG2zX7VwFzmADRUtN5PwgRTjy/exec';
+// ▲▲▲
+
+const LOCATIONS={
+ Logement:{Tours:['Adrien 1','Adrien 2','Adrien 3','Adrien 4','Adrien 5','Grammont 1','Grammont 2','Grammont 3','Grammont 4','Grammont 5','Grammont 6 – Romantique Vertige','Le Nid','Maison Brizon'],Avoine:['La Petite Maison 1','La Petite Maison 2','La Petite Maison 3','La Petite Maison 4','Les Forges Fond','Les Forges Terrasse','Les Forges Rue','Les Forges Étage droit','Les Forges Étage gauche']},
+ Laverie:{Tours:['Laverie Grammont'],Chinon:['Laverie Chinon']}
+};
+const HOME=[
+ {title:'🎥 1. J’arrive dans le logement',items:['Je filme l’état général avant toute intervention','J’ai transmis ma vidéo d’arrivée sur WhatsApp'],video:'arrival'},
+ {title:'🔎 2. Je vérifie le logement',items:['Placards, tiroirs et dessous des lits vérifiés','Réfrigérateur et congélateur vérifiés','Lave-linge vérifié et linge oublié retiré','État du linge vérifié : taches, usure et dégradations','État et fonctionnement des équipements vérifiés','Inventaire vérifié : aucun équipement ou objet manquant','Odeurs, déchets, traces de tabac et dégradations contrôlés'],reports:true},
+ {title:'🚿 3. Je nettoie la salle de bains',items:['Douche, pommeau et parois nettoyés','Lavabo, robinetterie et miroir nettoyés','Meuble, tiroirs et rangements nettoyés à l’intérieur et à l’extérieur','Sèche-cheveux présent, propre et fonctionnel','Sèche-cheveux remis dans le tiroir du meuble']},
+ {title:'🚽 4. Je nettoie les WC',items:['Cuvette, abattant et surfaces nettoyés','Brosse WC et son support nettoyés','Un rouleau de papier toilette complet laissé']},
+ {title:'🍳 5. Je nettoie la cuisine et l’électroménager',items:['Plans de travail et plaques de cuisson nettoyés','Évier et robinetterie nettoyés','Four ouvert et nettoyé à l’intérieur','Micro-ondes ouvert et nettoyé à l’intérieur','Réfrigérateur ouvert et nettoyé à l’intérieur','Congélateur ouvert, nettoyé et dégivré si nécessaire','Hotte et filtres nettoyés','Façades des meubles et poignées nettoyées']},
+ {title:'🛏️ 6. Je prépare la chambre et la literie',items:['Tête de lit entièrement nettoyée','Chevets, tablettes et surfaces autour du lit nettoyés','Linge utilisé retiré','Literie contrôlée et lit refait avec du linge propre'],linen:true},
+ {title:'🧽 7. Je réalise le nettoyage général',items:['Produits adaptés appliqués et temps de pose respectés','Poussières éliminées de haut en bas','Vitres et surfaces vitrées nettoyées','Surfaces en inox nettoyées avec un produit adapté','Sols aspirés et lavés']},
+ {title:'✨ 8. Je fais le contrôle final',items:['Propreté et rangement de chaque pièce vérifiés','Mobilier et équipements remis en place','Consommables cuisine vérifiés','Consommables salle de bains vérifiés','Consommables WC vérifiés','Présentation générale du logement vérifiée','Vidéo finale complète réalisée','Vidéo finale transmise sur WhatsApp'],video:'end'},
+ {title:'🔐 9. Je sécurise le logement',items:['Chauffages éteints','Toutes les lumières éteintes','Porte fermée et verrouillée','Clé remise dans la boîte à clés','Code de la boîte à clés brouillé']}
+];
+const LAUNDRY=[
+ {title:'🎥 1. Je contrôle la laverie à mon arrivée',items:['Je fais le tour complet de la laverie','Je filme l’état général avant toute intervention','J’ai transmis ma vidéo d’arrivée sur WhatsApp'],video:'arrival'},
+ {title:'🌀 2. Je nettoie les séchoirs',items:['Je récupère la clé des séchoirs','J’ouvre les cassettes des séchoirs','J’enlève les moutons et peluches accumulés dans les filtres','Je referme correctement chaque cassette','Je vérifie que chaque cassette est bien enclenchée']},
+ {title:'🧺 3. Je contrôle et nettoie les machines',items:['J’ouvre tous les tambours des lave-linge et séchoirs','Je vérifie qu’aucun linge n’a été oublié','Je nettoie les façades des machines','Je nettoie les tambours et surfaces accessibles','J’applique le produit inox adapté'],reports:true},
+ {title:'🧽 4. Je nettoie les espaces communs',items:['Je dépoussière et nettoie la ou les tables','Je vide la poubelle et remets un sac propre','Je nettoie la centrale de paiement','J’aspire ou je balaie tous les sols','Je passe la serpillière']},
+ {title:'✨ 5. Je termine mon intervention',items:['Propreté générale de la laverie vérifiée','Toutes les cassettes des séchoirs bien fermées et enclenchées','Clé des séchoirs remise à son emplacement','Vidéo finale réalisée','Vidéo finale transmise sur WhatsApp'],video:'end'}
+];
+const HOME_ISSUES=[
+ {name:'Murs, sols ou mobilier endommagés',instructions:['Prendre une photo de loin pour situer le dommage.','Prendre une photo de près pour montrer précisément le défaut.','Si le dommage est peu visible, décrire clairement ce qui ne va pas.']},
+ {name:'Équipement cassé ou manquant',instructions:['Si l’équipement est cassé : prendre une photo de loin et une photo de près.','Si l’équipement manque : rechercher une photo du précédent ménage montrant sa présence ou demander à un responsable de vérifier les archives.','Documenter les éléments avant/après et demander une vérification contradictoire ; ne pas attribuer de responsabilité sans preuve.']},
+ {name:'Linge taché ou abîmé',instructions:['Photographier le linge dans le logement avant de le déplacer.','Prendre une photo de loin montrant son emplacement et une photo de près de la tache ou dégradation.']},
+ {name:'Odeur de tabac',instructions:['Rechercher des traces de cendres.','Vérifier la poubelle : mégots, paquets de cigarettes et emballages.','Vérifier également le balcon, si le logement en possède un.','Photographier chaque élément trouvé de loin puis de près, dans son contexte.','Décrire l’odeur constatée ; ne pas conclure à une infraction sans éléments suffisants.']},
+ {name:'Autre odeur anormale',instructions:['Rechercher l’origine possible de l’odeur sans se mettre en danger.','Décrire précisément l’odeur, sa localisation et son intensité.','Prendre des photos ou une vidéo de tout élément matériel pertinent.']},
+ {name:'Problème de sanitaires',instructions:['Identifier l’élément concerné : WC, douche, lavabo, robinetterie, évacuation ou autre.','Décrire le problème constaté.','Prendre une photo ou une vidéo montrant le dysfonctionnement, sans manipulation risquée.']},
+ {name:'Autre anomalie',instructions:['Décrire précisément le problème et sa localisation.','Joindre des photos ou vidéos si elles permettent de le documenter.']}
+];
+const LAUNDRY_ISSUES=[
+ {name:'Fuite d’eau à l’avant d’une machine',instructions:['Identifier la machine et photographier la fuite de loin puis de près.']},
+ {name:'Fuite d’eau à l’arrière d’une machine',instructions:['Identifier la machine et documenter la fuite uniquement depuis un emplacement accessible et sûr.']},
+ {name:'Une pièce est cassée',instructions:['Photographier la pièce de loin puis de près sans tenter de la démonter.']},
+ {name:'Un élément est endommagé',instructions:['Photographier l’élément de loin puis de près et décrire les dommages.']},
+ {name:'Un lave-linge ou séchoir ne fonctionne pas',instructions:['Identifier la machine et décrire les symptômes visibles sans effectuer de réparation.']},
+ {name:'Problème avec la centrale de paiement',instructions:['Décrire le message ou comportement observé et le photographier si possible.']},
+ {name:'Problème de porte ou de fermeture',instructions:['Décrire le problème et prendre une photo ou vidéo sans forcer le mécanisme.']},
+ {name:'Autre problème',instructions:['Décrire le problème et transmettre des photos si utiles.']}
+];
+const SOFA=['Canapé-lit ouvert et vérifié, linge utilisé retiré','Protège-matelas aspiré et changé uniquement si nécessaire','Kit de linge standard complet vérifié et reconstitué dans la boîte grise'];
+const $=id=>document.getElementById(id);
+const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;};
+let type='Logement';let busy=false;
+// Identifiant unique de cette fiche : si l'envoi est relancé, le serveur ne crée pas de doublon.
+const submissionId=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():'f-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,12);
+function check(label,holder,onChange){const l=el('label','check');const input=el('input');input.type='checkbox';input.dataset.task=label;input.addEventListener('change',()=>{updateProgress();if(onChange)onChange(input.checked);});l.append(input,el('span','',label));holder.append(l);return input;}
+function radioChoice(name,value,text,holder,selected){const label=el('label');const input=el('input');input.type='radio';input.name=name;input.value=value;input.checked=selected;label.append(input,document.createTextNode(' '+text));holder.append(label);return input;}
+function textArea(placeholder,holder){const t=el('textarea');t.placeholder=placeholder;t.maxLength=1500;holder.append(t);return t;}
+function wa(kind,detail){const message=[kind,$('place').value||'Lieu non sélectionné','Intervenante : '+($('cleaner').value.trim()||'Non renseignée'),detail||''].filter(Boolean).join('\n');window.open('https://wa.me/?text='+encodeURIComponent(message),'_blank','noopener,noreferrer');}
+function waButton(title,kind,holder,getDetail){const b=el('button','action',title);b.type='button';b.addEventListener('click',()=>wa(kind,getDetail?getDetail():''));holder.append(b);return b;}
+function refreshPlaces(){const sector=$('sector');sector.replaceChildren();Object.keys(LOCATIONS[type]).forEach(s=>{const o=el('option','',s);o.value=s;sector.append(o);});refreshPlaceOptions();}
+function refreshPlaceOptions(){const place=$('place');place.replaceChildren();const first=el('option','','Sélectionner un lieu');first.value='';place.append(first);LOCATIONS[type][$('sector').value].forEach(p=>{const o=el('option','',p);o.value=p;place.append(o);});}
+function addIssueSection(holder){const card=el('div','soft');card.append(el('h3','','⚠️ Je signale un problème'));const radios=el('div','choices');const no=radioChoice('issue','non','Aucun problème constaté',radios,true);const yes=radioChoice('issue','oui','Je signale un problème',radios,false);card.append(radios);const detail=el('div','hidden');if(type==='Laverie')detail.append(el('div','warning','🚨 IMPORTANT : Ne pas essayer de réparer. Appelez immédiatement la propriétaire.'));
+ const options=type==='Logement'?HOME_ISSUES:LAUNDRY_ISSUES;
+ const blocks=[];
+ options.forEach((issue,i)=>{const block=el('div','');const c=check(issue.name,block,selected=>{instructions.classList.toggle('hidden',!selected);});c.removeAttribute('data-task');const instructions=el('div','proced hidden');instructions.append(el('strong','','📸 Procédure à suivre immédiatement'));const ul=el('ul');issue.instructions.forEach(item=>ul.append(el('li','',item)));instructions.append(ul);const desc=textArea('Précisions : localisation, état, observations...',instructions);block.append(instructions);detail.append(block);blocks.push({issue,c,desc});});
+ let machine=null;if(type==='Laverie'){detail.append(el('label','field','Machine ou équipement concerné'));machine=el('input');machine.type='text';machine.maxLength=120;machine.placeholder='Ex. : machine 14 kg n° 2';detail.append(machine);}
+ const extra=el('div');extra.append(el('label','field','Autres précisions'));const notes=textArea('Compléments utiles...',extra);detail.append(extra);
+ const sent=check('J’ai envoyé les photos/vidéos des anomalies sur WhatsApp',detail);sent.removeAttribute('data-task');sent.id='evidenceSent';
+ waButton('📸 Signaler sur WhatsApp avec photos','⚠️ Signalement de problème',detail,()=>[...blocks.filter(b=>b.c.checked).map(b=>b.issue.name+' : '+b.desc.value.trim()),machine?'Équipement : '+machine.value.trim():'',notes.value.trim()].filter(Boolean).join('\n'));
+ no.addEventListener('change',()=>detail.classList.add('hidden'));yes.addEventListener('change',()=>detail.classList.remove('hidden'));card.append(detail);holder.append(card);
+ return ()=>!yes.checked?[]:(blocks.some(b=>b.c.checked)?[]:[{category:'Problème signalé – catégorie non sélectionnée',description:'',evidence:'Photos/vidéos envoyées déclarées : '+(sent.checked?'Oui':'Non')}]).concat(blocks.filter(b=>b.c.checked).map(b=>({category:b.issue.name,description:b.desc.value.trim(),evidence:'Photos/vidéos envoyées déclarées : '+(sent.checked?'Oui':'Non')})).concat(notes.value.trim()?[{category:'Précisions complémentaires',description:notes.value.trim(),evidence:''}]:[]));
+}
+let collectIssues=()=>[];let collectForgotten=()=>'';
+function addForgotten(holder){const card=el('div','soft');card.append(el('h3','','🔍 Objet oublié par un voyageur ?'));const radios=el('div','choices');const no=radioChoice('forgotten','non','Aucun objet oublié',radios,true);const yes=radioChoice('forgotten','oui','Je signale un objet oublié',radios,false);card.append(radios);const detail=el('div','hidden');const txt=textArea('Quel objet ? Où a-t-il été trouvé ?',detail);waButton('📸 Signaler l’objet sur WhatsApp','🔍 Objet oublié',detail,()=>txt.value);card.append(detail);no.addEventListener('change',()=>detail.classList.add('hidden'));yes.addEventListener('change',()=>detail.classList.remove('hidden'));holder.append(card);collectForgotten=()=>yes.checked?(txt.value.trim()||'Objet oublié signalé – description non renseignée'):'';}
+function addLinen(holder){const note=el('div','soft');note.append(el('h3','','🧺 Kit de linge standard'));note.append(el('p','', '1 drap plat · 1 housse de couette · 2 taies d’oreiller · 2 petites serviettes · 1 torchon · 1 tapis de bain.'));note.append(el('p','mini','Les protège-oreillers, protège-matelas et couvre-lits restent en place ; ils sont changés uniquement si nécessaire (sales, tachés ou endommagés).'));holder.append(note);
+ const sofa=el('div','soft');const toggle=check('🛋️ Le logement possède un canapé-lit',sofa,selected=>{extra.classList.toggle('hidden',!selected);updateProgress();});toggle.removeAttribute('data-task');const extra=el('div','hidden');SOFA.forEach(t=>check(t,extra));sofa.append(extra);holder.append(sofa);
+}
+function render(){const container=$('tasks');container.replaceChildren();collectForgotten=()=>'';collectIssues=()=>[];const groups=type==='Logement'?HOME:LAUNDRY;
+ groups.forEach(group=>{const card=el('section','card');card.append(el('h2','',group.title));group.items.forEach(item=>check(item,card));if(group.video==='arrival')waButton('📹 Envoyer ma vidéo d’arrivée sur WhatsApp','🎥 Vidéo d’arrivée',card);if(group.reports){if(type==='Logement')addForgotten(card);collectIssues=addIssueSection(card);}if(group.linen)addLinen(card);if(group.video==='end')waButton('📹 Envoyer ma vidéo finale sur WhatsApp','🎥 Vidéo de fin d’intervention',card);container.append(card);});updateProgress();$('result').replaceChildren();}
+function taskInputs(){return [...document.querySelectorAll('#tasks input[data-task]')].filter(input=>!input.closest('.hidden'));}
+function updateProgress(){const tasks=taskInputs();const completed=tasks.filter(t=>t.checked).length;$('counter').textContent=completed+'/'+tasks.length;$('bar').style.width=(tasks.length?completed/tasks.length*100:0)+'%';}
+function collect(){const tasks=taskInputs().map(t=>({label:t.dataset.task,done:t.checked}));return {submissionId,type,sector:$('sector').value,place:$('place').value,cleaner:$('cleaner').value.trim(),tasks,anomalies:collectIssues(),forgotten:collectForgotten(),comments:$('comments').value.trim(),flags:{videoArrival:tasks.some(t=>t.done&&t.label.toLowerCase().includes('transmis')&&t.label.toLowerCase().includes('arrivée')),videoEnd:tasks.some(t=>t.done&&t.label.toLowerCase().includes('vidéo finale transmise')),evidenceSent:!!($('evidenceSent')&&$('evidenceSent').checked)}};}
+function submit(){if(busy)return;const payload=collect();const result=$('result');result.replaceChildren();if(!payload.place||!payload.cleaner){result.append(el('div','status error','Sélectionnez un lieu et indiquez votre prénom.'));return;}
+ const missing=payload.tasks.filter(t=>!t.done).length;if(missing&&!confirm(missing+' tâche(s) non cochée(s). Soumettre tout de même en les signalant dans le rapport ?'))return;
+ if(payload.anomalies.length===0&&document.querySelector('input[name=issue]:checked')?.value==='oui'&&!confirm('Vous avez signalé un problème sans sélectionner de catégorie. Continuer ?'))return;
+ const viaGoogle=!!(window.google&&google.script&&google.script.run);
+ if(!viaGoogle&&!/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/.test(API_URL)){result.append(el('div','status error','Envoi indisponible : adresse du serveur non configurée (API_URL).'));return;}
+ busy=true;$('submit').disabled=true;result.append(el('div','status','Enregistrement et envoi du rapport en cours…'));
+ const onSuccess=response=>{busy=false;result.replaceChildren();if(response&&response.ok){result.append(el('div','status','✅ Rapport enregistré et e-mail envoyé. Référence : '+response.ref));$('submit').textContent='Rapport transmis';$('submit').disabled=true;}else{result.append(el('div','status error',(response&&response.message||'Enregistrement incomplet.')+' Référence : '+(response&&response.ref||'inconnue')));$('submit').disabled=true;}};const onFailure=error=>{busy=false;$('submit').disabled=false;result.replaceChildren();result.append(el('div','status error','Erreur : '+(error&&error.message||'Échec de transmission')+'. Vos réponses sont conservées : vous pouvez appuyer à nouveau sur le bouton, le rapport ne sera pas enregistré deux fois.'));};
+ if(viaGoogle){google.script.run.withSuccessHandler(onSuccess).withFailureHandler(onFailure).submitReport(payload);return;}
+ // Envoi direct au serveur, sans cookie Google (évite l'erreur des comptes multiples).
+ fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload),credentials:'omit',redirect:'follow'})
+  .then(r=>{if(!r.ok)throw new Error('Serveur indisponible ('+r.status+')');return r.json();})
+  .then(res=>{if(res&&res.thrown)onFailure(new Error(res.message));else onSuccess(res);})
+  .catch(err=>onFailure(err&&err.message&&err.message!=='Failed to fetch'?err:new Error('Pas de connexion Internet ou serveur injoignable')));
+}
+document.querySelectorAll('input[name=type]').forEach(r=>r.addEventListener('change',()=>{type=r.value;refreshPlaces();render();}));$('sector').addEventListener('change',refreshPlaceOptions);$('submit').addEventListener('click',submit);refreshPlaces();render();
+</script></body></html>
